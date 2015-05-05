@@ -1,0 +1,29 @@
+{
+  "name": "chat-push-server",
+  "version": "0.0.1",
+  "description": "Push server for the chat.",
+  "main": "index.js",
+  "dependencies": {
+    "rabbit.js": "^0.4.2",
+    "socket.io": "^1.3.5"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nchervyakov/chat-push-server.git"
+  },
+  "keywords": [
+    "chat",
+    "push",
+    "server"
+  ],
+  "author": "Nikolay Chervyakov",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/nchervyakov/chat-push-server/issues"
+  },
+  "homepage": "https://github.com/nchervyakov/chat-push-server"
+}
