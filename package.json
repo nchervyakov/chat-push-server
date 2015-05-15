@@ -4,7 +4,6 @@
   "description": "Push server for the chat.",
   "main": "index.js",
   "dependencies": {
-    "amqplib": "^0.3.2",
     "rabbit.js": "^0.4.2",
     "socket.io": "^1.3.5"
   },

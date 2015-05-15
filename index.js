@@ -5,53 +5,97 @@
 * Time: 18:19
 */
 
-var q = 'tasks';
-
-var open = require('amqplib').connect('amqp://localhost');
-
+var context = require('rabbit.js').createContext('amqp://localhost');
 var io = require('socket.io')(4397);
+var usersTokens = {},
+    tokenCounts = {};
 
-// Publisher
-//open.then(function(conn) {
-//    var ok = conn.createChannel();
-//    ok = ok.then(function(ch) {
-//        ch.assertQueue(q);
-//        ch.sendToQueue(q, new Buffer('something to do'));
-//    });
-//    return ok;
-//}).then(null, console.warn);
 
-// Consumer
-open.then(function(conn) {
-    var ok = conn.createChannel();
-    ok = ok.then(function(ch) {
-        ch.assertQueue(q);
+context.on('ready', function () {
+    var sub = context.socket('PULL', {routing: 'direct'});
+    sub.setsockopt('persistent', true);
+    sub.setEncoding('utf8');
 
-        io.on('connection', function (socket) {
-            socket.on('message', function () { });
-            socket.on('disconnect', function () { });
+    console.log('ready');
 
-            ch.consume(q, function(msg) {
-                if (msg !== null) {
-                    var content;
-                    try {
-                        content = JSON.parse(msg.content.toString());
-                    } catch (e) {
-                        content = msg.content.toString();
-                    }
-                    console.log(content);
-                    io.emit('new_messages', content);
-                    ch.ack(msg);
+    sub.on('data',function(msg) {
+        if (msg !== null) {
+            var content;
+            try {
+                content = JSON.parse(msg);
+            } catch (e) {
+                content = msg.content.toString();
+            }
+
+            usersTokens[content.token] = content.user_id;
+        }
+    });
+    sub.connect('user_info');
+});
+
+io.on('connection', function (socket) {
+    var token = '',
+        user_id = null,
+        initialized = false,
+        sub = context.socket('SUB', {routing: 'direct'});
+        //pub = context.socket('PUB'),
+
+    sub.setsockopt('persistent', false);
+    sub.setEncoding('utf8');
+
+    //socket.on('message', function () { });
+    socket.on('disconnect', function () {
+        sub.close();
+        if (tokenCounts[token]) {
+            tokenCounts[token]--;
+            if (tokenCounts[token] == 0) {
+                delete usersTokens[token];
+            }
+        }
+    });
+
+    socket.on('register_token', function (tok) {
+        if (tok) {
+            token = tok;
+            user_id = usersTokens[token];
+            bindHandlers();
+        }
+    });
+
+    var bindHandlers = function () {
+        if (initialized || !token || !user_id) {
+            return;
+        }
+
+        //var room = 'user.' + token;
+        //socket.join(room);
+
+        sub.on('data',function(msg) {
+            if (msg !== null) {
+                var content;
+                try {
+                    content = JSON.parse(msg.toString());
+                } catch (e) {
+                    content = msg.content.toString();
                 }
-            });
+
+                if (content.type) {
+                    io.to(socket.id).emit(content.type, content.data);
+                } else {
+                    io.to(socket.id).emit('message', content);
+                }
+            }
         });
 
+        sub.connect('notifications', 'user.' + user_id);
 
-    });
-    return ok;
-}).then(null, console.warn);
+        if (!tokenCounts[token]) {
+            tokenCounts[token] = 0;
+        }
 
-//io.on('connection', function (socket) {
-//    socket.on('message', function () { });
-//    socket.on('disconnect', function () { });
-//});
+        tokenCounts[token]++;
+
+        io.to(socket.id).emit('bound', true);
+        initialized = true;
+    };
+});
