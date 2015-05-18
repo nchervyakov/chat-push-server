@@ -5,18 +5,31 @@
 * Time: 18:19
 */
 
-var context = require('rabbit.js').createContext('amqp://localhost');
-var io = require('socket.io')(4397);
-var usersTokens = {},
-    tokenCounts = {};
+var fs = require('fs');
+var extend = require('extend');
+var jf = require('jsonfile');
+var usersTokens = {};
+    //tokenCounts = {};
 
+var config = jf.readFileSync('./config.json.dist');
+
+if (fs.existsSync('./config.json')) {
+    var customConfig = jf.readFileSync('./config.json');
+    if (typeof customConfig == 'object') {
+        extend(true, config, customConfig);
+    }
+}
+
+var context = require('rabbit.js').createContext(config.rabbit.host);
+var io = require('socket.io')(config.http.port);
+console.log('Socket.IO has started.');
 
 context.on('ready', function () {
     var sub = context.socket('PULL', {routing: 'direct'});
     sub.setsockopt('persistent', true);
     sub.setEncoding('utf8');
 
-    console.log('ready');
+    console.log("RabbitMQ connection is ready.");
 
     sub.on('data',function(msg) {
         if (msg !== null) {
@@ -26,7 +39,7 @@ context.on('ready', function () {
             } catch (e) {
                 content = msg.content.toString();
             }
-
+            console.log(['User token: ', content.user_id, content.token]);
             usersTokens[content.token] = content.user_id;
         }
     });
@@ -46,18 +59,20 @@ io.on('connection', function (socket) {
     //socket.on('message', function () { });
     socket.on('disconnect', function () {
         sub.close();
-        if (tokenCounts[token]) {
-            tokenCounts[token]--;
-            if (tokenCounts[token] == 0) {
-                delete usersTokens[token];
-            }
-        }
+        //if (tokenCounts[token]) {
+        //    tokenCounts[token]--;
+            //if (tokenCounts[token] == 0) {
+            //    delete usersTokens[token];
+            //}
+        //}
     });
 
     socket.on('register_token', function (tok) {
+        console.log(tok);
         if (tok) {
             token = tok;
             user_id = usersTokens[token];
+            console.log([user_id, token]);
             bindHandlers();
         }
     });
@@ -89,11 +104,11 @@ io.on('connection', function (socket) {
 
         sub.connect('notifications', 'user.' + user_id);
 
-        if (!tokenCounts[token]) {
-            tokenCounts[token] = 0;
-        }
-
-        tokenCounts[token]++;
+        //if (!tokenCounts[token]) {
+        //    tokenCounts[token] = 0;
+        //}
+        //
+        //tokenCounts[token]++;
 
         io.to(socket.id).emit('bound', true);
         initialized = true;
