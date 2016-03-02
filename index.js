@@ -10,11 +10,12 @@ var extend = require('extend');
 var jf = require('jsonfile');
 var usersTokens = {};
     //tokenCounts = {};
+var dname = require('path').dirname(require.main.filename);
 
-var config = jf.readFileSync('./config.json.dist');
+var config = jf.readFileSync(dname + '/config.json.dist');
 
-if (fs.existsSync('./config.json')) {
-    var customConfig = jf.readFileSync('./config.json');
+if (fs.existsSync(dname + '/config.json')) {
+    var customConfig = jf.readFileSync(dname + '/config.json');
     if (typeof customConfig == 'object') {
         extend(true, config, customConfig);
     }
@@ -72,8 +73,10 @@ io.on('connection', function (socket) {
         if (tok) {
             token = tok;
             user_id = usersTokens[token];
-            console.log([user_id, token]);
-            bindHandlers();
+            if (user_id) {
+                console.log([user_id, token]);
+                bindHandlers();
+            }
         }
     });
 
